@@ -7,6 +7,7 @@
  * Author: Tu Nombre
  * Author URI: https://codigobell.com
  * License: GPL-2.0+
+ * Text Domain: codigobell-woo-reviews
  */
 
 if (!defined('ABSPATH')) {
@@ -26,9 +27,10 @@ function cwr_check_woocommerce() {
     return false;
 }
 
-// Carga el plugin en plugins_loaded para asegurar que WooCommerce esté inicializado
+// Carga el plugin en plugins_loaded
 add_action('plugins_loaded', function() {
     if (cwr_check_woocommerce()) {
         require_once plugin_dir_path(__FILE__) . 'includes/admin-settings.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/review-form.php';
     }
 });
