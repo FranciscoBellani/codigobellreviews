@@ -32,5 +32,7 @@ add_action('plugins_loaded', function() {
     if (cwr_check_woocommerce()) {
         require_once plugin_dir_path(__FILE__) . 'includes/admin-settings.php';
         require_once plugin_dir_path(__FILE__) . 'includes/review-form.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/review-meta.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/review-display.php';
     }
 });
