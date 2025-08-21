@@ -16,25 +16,20 @@ function cwr_custom_review_form($comment_form) {
     $ratings = get_option('cwr_specific_ratings', "Calidad\nDiseño\nValor");
     $ratings_array = array_filter(array_map('trim', explode("\n", $ratings)));
 
-    // Añade campos para las valoraciones específicas con estrellas
+    // Añade campos para las valoraciones específicas con estrellas SVG
     $comment_form['comment_field'] .= '<div class="cwr-specific-ratings">';
     foreach ($ratings_array as $rating) {
         $rating_key = sanitize_key($rating);
         $comment_form['comment_field'] .= '
             <p class="comment-form-' . esc_attr($rating_key) . '">
-                <label for="cwr_rating_' . esc_attr($rating_key) . '">' . esc_html($rating) . '</label>
-                <div class="star-rating" role="img" aria-label="' . esc_attr($rating) . '">
-                    <select name="cwr_rating_' . esc_attr($rating_key) . '" id="cwr_rating_' . esc_attr($rating_key) . '" class="cwr-star-rating" required style="display:none;">
-                        <option value="">' . __('Selecciona', 'codigobell-woo-reviews') . '</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                    </select>
-                    <span class="cwr-stars" data-rating="0"></span>
-                </div>
-            </p>';
+                <label for="cwr_rating_' . esc_attr($rating_key) . '">' . esc_html($rating) . ' <span class="required">*</span></label>
+                <div class="star-rating" role="img" aria-label="' . esc_attr($rating) . ' rating">
+                    <input type="hidden" name="cwr_rating_' . esc_attr($rating_key) . '" id="cwr_rating_' . esc_attr($rating_key) . '" class="cwr-star-rating" value="0" required>
+                    <span class="cwr-stars" data-rating="0">';
+        for ($i = 1; $i <= 5; $i++) {
+            $comment_form['comment_field'] .= '<svg width="20" height="20" viewBox="0 0 24 24" class="cwr-star" data-star="' . $i . '"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.416 3.967 1.48-8.279L.587 9.306l8.332-1.151z"/></svg>';
+        }
+        $comment_form['comment_field'] .= '</span></div></p>';
     }
     $comment_form['comment_field'] .= '</div>';
 
@@ -45,52 +40,76 @@ function cwr_custom_review_form($comment_form) {
             <textarea id="cwr_feature_suggestion" name="cwr_feature_suggestion" cols="45" rows="4" maxlength="500"></textarea>
         </p>';
 
-    // Añade JavaScript y CSS para las estrellas
+    // Añade CSS y JavaScript para las estrellas
     $comment_form['comment_field'] .= '
         <style>
             .cwr-specific-ratings .star-rating {
                 display: inline-block;
                 font-size: 0;
                 line-height: 1;
-                position: relative;
+                margin-top: 5px;
             }
             .cwr-specific-ratings .cwr-stars {
-                display: inline-block;
-                width: 100px;
-                height: 20px;
-                background: url(' . esc_url(plugins_url('images/star-golden.svg', __FILE__)) . ') 0 0 repeat-x;
-                background-size: 20px 20px;
+                display: inline-flex;
+                cursor: pointer;
             }
-            .cwr-specific-ratings .cwr-stars::before {
-                content: "";
-                display: block;
-                width: 100px;
-                height: 20px;
-                background: url(' . esc_url(plugins_url('images/star-gray.svg', __FILE__)) . ') 0 0 repeat-x;
-                background-size: 20px 20px;
+            .cwr-specific-ratings .cwr-star {
+                fill: none;
+                stroke: #ccc;
+                stroke-width: 2;
+                margin-right: 5px;
+                transition: fill 0.2s, stroke 0.2s;
             }
-            .cwr-specific-ratings .cwr-stars[data-rating="1"]::before { width: 20px; }
-            .cwr-specific-ratings .cwr-stars[data-rating="2"]::before { width: 40px; }
-            .cwr-specific-ratings .cwr-stars[data-rating="3"]::before { width: 60px; }
-            .cwr-specific-ratings .cwr-stars[data-rating="4"]::before { width: 80px; }
-            .cwr-specific-ratings .cwr-stars[data-rating="5"]::before { width: 100px; }
+            .cwr-specific-ratings .cwr-star.filled {
+                fill: #f5c518;
+                stroke: #f5c518;
+            }
+            .cwr-specific-ratings .cwr-star:hover,
+            .cwr-specific-ratings .cwr-star:hover ~ .cwr-star {
+                fill: none;
+                stroke: #ccc;
+            }
+            .cwr-specific-ratings .cwr-star.filled:hover,
+            .cwr-specific-ratings .cwr-star.filled:hover ~ .cwr-star.filled {
+                fill: #f5c518;
+                stroke: #f5c518;
+            }
         </style>
         <script>
-            document.addEventListener("DOMContentLoaded", function() {
-                document.querySelectorAll(".cwr-specific-ratings .cwr-star-rating").forEach(function(select) {
-                    var stars = select.nextElementSibling;
-                    select.addEventListener("change", function() {
-                        stars.setAttribute("data-rating", this.value);
+            (function() {
+                function initStarRatings() {
+                    document.querySelectorAll(".cwr-specific-ratings .cwr-stars").forEach(function(starsContainer) {
+                        var input = starsContainer.previousElementSibling;
+                        var stars = starsContainer.querySelectorAll(".cwr-star");
+                        stars.forEach(function(star, index) {
+                            star.addEventListener("click", function() {
+                                var rating = index + 1;
+                                input.value = rating;
+                                starsContainer.setAttribute("data-rating", rating);
+                                stars.forEach(function(s, i) {
+                                    s.classList.toggle("filled", i < rating);
+                                });
+                            });
+                            star.addEventListener("mouseover", function() {
+                                stars.forEach(function(s, i) {
+                                    s.classList.toggle("filled", i < (index + 1));
+                                });
+                            });
+                            star.addEventListener("mouseout", function() {
+                                var currentRating = parseInt(starsContainer.getAttribute("data-rating")) || 0;
+                                stars.forEach(function(s, i) {
+                                    s.classList.toggle("filled", i < currentRating);
+                                });
+                            });
+                        });
                     });
-                    stars.addEventListener("click", function(e) {
-                        var rect = stars.getBoundingClientRect();
-                        var x = e.clientX - rect.left;
-                        var rating = Math.ceil(x / (rect.width / 5));
-                        select.value = rating;
-                        stars.setAttribute("data-rating", rating);
-                    });
-                });
-            });
+                }
+                if (document.readyState === "loading") {
+                    document.addEventListener("DOMContentLoaded", initStarRatings);
+                } else {
+                    initStarRatings();
+                }
+            })();
         </script>';
 
     return $comment_form;
