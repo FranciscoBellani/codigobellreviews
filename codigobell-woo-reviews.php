@@ -4,7 +4,7 @@
  * Plugin URI: https://codigobell.com
  * Description: Plugin para reseñas personalizadas en WooCommerce con valoraciones detalladas y gamificación extensible.
  * Version: 1.0
- * Author: Tu Nombre
+ * Author: Fran Bellani
  * Author URI: https://codigobell.com
  * License: GPL-2.0+
  * Text Domain: codigobell-woo-reviews
@@ -27,12 +27,12 @@ function cwr_check_woocommerce() {
     return false;
 }
 
-// Carga el plugin en plugins_loaded
+// Carga el plugin
 add_action('plugins_loaded', function() {
     if (cwr_check_woocommerce()) {
-        require_once plugin_dir_path(__FILE__) . 'includes/admin-settings.php';
         require_once plugin_dir_path(__FILE__) . 'includes/review-form.php';
-        require_once plugin_dir_path(__FILE__) . 'includes/review-meta.php';
         require_once plugin_dir_path(__FILE__) . 'includes/review-display.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/review-meta.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/admin-settings.php';
     }
 });
