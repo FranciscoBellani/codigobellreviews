@@ -1,77 +1,66 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-// Permitir que WooCommerce maneje la valoración general
-add_filter('woocommerce_product_get_rating_html', 'cwr_modify_rating_html', 10, 2);
-function cwr_modify_rating_html($html, $rating) {
-    console_log("WooCommerce rating HTML: " . $html); // Depuración
-    return $html;
-}
+// Mostrar estadísticas de valoraciones extras en la pestaña Reviews de WooCommerce
+add_action('woocommerce_review_before', 'cwr_display_attribute_statistics_in_reviews_tab', 1);
 
-// Mostrar meta de reseñas personalizadas como íconos con indicadores
-add_action('woocommerce_review_after_comment_text', 'cwr_display_custom_review_meta', 30, 1); // Prioridad 30 para que vaya después
-function cwr_display_custom_review_meta($comment) {
-    $comment_id = $comment->comment_ID;
+function cwr_display_attribute_statistics_in_reviews_tab() {
+    if (!is_product()) return;
+
+    global $product;
+    $product_id = $product->get_id();
     $ratings = get_option('cwr_specific_ratings', "Acidez\nDulzura\nCuerpo");
     $ratings_array = array_filter(array_map('trim', explode("\n", $ratings)));
+    $total_ratings = [];
+    $count_ratings = [];
 
-    console_log("Rendering custom review meta for comment ID: " . $comment_id); // Depuración
-    echo '<div class="cwr-custom-review-meta" style="margin: 10px 0; clear: both;">';
-    foreach ($ratings_array as $rating) {
-        $rating_key = sanitize_key($rating);
-        $rating_value = get_comment_meta($comment_id, 'cwr_rating_' . $rating_key, true);
-        if ($rating_value && is_numeric($rating_value)) {
-            console_log("Rendering $rating with value: " . $rating_value); // Depuración
-            echo '<p style="margin: 5px 0; display: flex; align-items: center;">';
-            // Íconos personalizados con dashicons
-            switch (strtolower($rating)) {
-                case 'acidez':
-                    echo '<span class="dashicons dashicons-image-filter" style="font-size: 1.5em; color: #0073aa; margin-right: 10px;"></span>'; // Gota
-                    break;
-                case 'dulzura':
-                    echo '<span class="dashicons dashicons-lemon" style="font-size: 1.5em; color: #00a32a; margin-right: 10px;"></span>'; // Hoja
-                    break;
-                case 'cuerpo':
-                    echo '<span class="dashicons dashicons-admin-users" style="font-size: 1.5em; color: #d54e21; margin-right: 10px;"></span>'; // Cuerpo
-                    break;
+    // Obtener todos los comentarios aprobados del producto
+    $args = array(
+        'post_id' => $product_id,
+        'status' => 'approve',
+        'type' => 'review',
+    );
+    $comments = get_comments($args);
+
+    // Calcular promedios
+    foreach ($comments as $comment) {
+        $comment_id = $comment->comment_ID;
+        foreach ($ratings_array as $rating) {
+            $rating_key = sanitize_key($rating);
+            $rating_value = get_comment_meta($comment_id, 'cwr_rating_' . $rating_key, true);
+            if ($rating_value && is_numeric($rating_value)) {
+                $total_ratings[$rating_key] = isset($total_ratings[$rating_key]) ? $total_ratings[$rating_key] + $rating_value : $rating_value;
+                $count_ratings[$rating_key] = isset($count_ratings[$rating_key]) ? $count_ratings[$rating_key] + 1 : 1;
             }
-            echo '<strong>' . esc_html($rating) . ':</strong> <span style="margin-left: 5px;">' . esc_html($rating_value) . '/5</span>';
-            echo '</p>';
         }
     }
-    $feature_suggestion = get_comment_meta($comment_id, 'cwr_feature_suggestion', true);
-    if ($feature_suggestion) {
-        echo '<p style="margin: 5px 0;"><strong>' . __('Sugerencia de característica', 'codigobell-woo-reviews') . ':</strong> ' . esc_html($feature_suggestion) . '</p>';
+
+    // Solo mostrar una vez antes del loop, con una condición para eso
+    static $displayed = false;
+    if ($displayed) return;
+    $displayed = true;
+
+    echo '<div class="cwr-attribute-stats" style="margin:15px 0; border-top:1px solid #eee; padding-top:10px;">';
+    echo '<h4>Estadísticas de valoraciones específicas</h4>';
+    foreach ($ratings_array as $rating) {
+        $rating_key = sanitize_key($rating);
+        $average = ($count_ratings[$rating_key] ?? 0) > 0 ? round($total_ratings[$rating_key] / $count_ratings[$rating_key], 1) : 0;
+
+        // ejemplo de iconos con dashicons; puedes ajustar
+        switch (strtolower($rating)) {
+            case 'acidez':
+                $icon = '<span class="dashicons dashicons-image-filter" style="color:#0073aa; margin-right:8px; font-size:1.3em;"></span>';
+                break;
+            case 'dulzura':
+                $icon = '<span class="dashicons dashicons-lemon" style="color:#00a32a; margin-right:8px; font-size:1.3em;"></span>';
+                break;
+            case 'cuerpo':
+                $icon = '<span class="dashicons dashicons-admin-users" style="color:#d54e21; margin-right:8px; font-size:1.3em;"></span>';
+                break;
+            default:
+                $icon = '';
+        }
+        echo '<p style="display:flex; align-items:center; margin:5px 0;">' . $icon . '<strong>' . esc_html($rating) . ':</strong> <span style="margin-left: 5px;">' . esc_html($average) . '/5</span></p>';
     }
     echo '</div>';
-
-    echo '
-        <style>
-            .cwr-custom-review-meta {
-                margin-top: 15px;
-                border-top: 1px solid #eee;
-                padding-top: 10px;
-                clear: both;
-            }
-            .cwr-custom-review-meta p {
-                display: flex;
-                align-items: center;
-                font-size: 1.1em;
-            }
-            .cwr-custom-review-meta .dashicons {
-                vertical-align: middle;
-            }
-            /* Asegurar separación con la valoración general */
-            .comment_container .star-rating {
-                margin-bottom: 10px;
-                display: block;
-            }
-        </style>';
-}
-
-// Función auxiliar para console.log
-if (!function_exists('console_log')) {
-    function console_log($message) {
-        echo '<script>console.log(' . json_encode($message) . ')</script>';
-    }
 }
