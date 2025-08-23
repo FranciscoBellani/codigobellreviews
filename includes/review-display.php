@@ -35,18 +35,21 @@ function cwr_display_attribute_statistics_in_reviews_tab() {
         }
     }
 
-    // Solo mostrar una vez antes del loop, con una condición para eso
+    // Solo mostrar una vez antes del loop de reseñas
     static $displayed = false;
     if ($displayed) return;
     $displayed = true;
 
     echo '<div class="cwr-attribute-stats" style="margin:15px 0; border-top:1px solid #eee; padding-top:10px;">';
     echo '<h4>Estadísticas de valoraciones específicas</h4>';
+
     foreach ($ratings_array as $rating) {
         $rating_key = sanitize_key($rating);
         $average = ($count_ratings[$rating_key] ?? 0) > 0 ? round($total_ratings[$rating_key] / $count_ratings[$rating_key], 1) : 0;
+        $percentage = ($average / 5) * 100;
 
-        // ejemplo de iconos con dashicons; puedes ajustar
+        echo '<p style="display: flex; align-items: center; margin: 5px 0;">';
+        // Iconos opcionales
         switch (strtolower($rating)) {
             case 'acidez':
                 $icon = '<span class="dashicons dashicons-image-filter" style="color:#0073aa; margin-right:8px; font-size:1.3em;"></span>';
@@ -60,7 +63,13 @@ function cwr_display_attribute_statistics_in_reviews_tab() {
             default:
                 $icon = '';
         }
-        echo '<p style="display:flex; align-items:center; margin:5px 0;">' . $icon . '<strong>' . esc_html($rating) . ':</strong> <span style="margin-left: 5px;">' . esc_html($average) . '/5</span></p>';
+        echo $icon;
+        echo '<strong>' . esc_html($rating) . ':</strong>';
+        // Solo estrellas doradas, sin capa gris
+        echo '<span class="star-rating" title="' . esc_attr($average) . ' de 5" style="display:inline-block; position:relative; font-size: 1.2em; color: #e6a600; margin-left: 8px;">';
+        echo '<span style="width:' . esc_attr($percentage) . '%; overflow: hidden; white-space: nowrap; position: static; color: #e6a600;">★★★★★</span>';
+        echo '</span>';
+        echo '</p>';
     }
     echo '</div>';
 }
