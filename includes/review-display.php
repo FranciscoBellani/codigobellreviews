@@ -24,16 +24,17 @@ function cwr_custom_reviews_visual_block() {
     global $product;
     $product_id = $product->get_id();
 
+    // Configuración
     $ratings = get_option('cwr_specific_ratings', "Acidez\nDulzura\nCuerpo\nProcesado\nVariedad\nRegión");
     $ratings_array = array_filter(array_map('trim', explode("\n", $ratings)));
 
     $icons = [
-        'acidez'      => '<span style="font-size:2em;">💧</span>',
-        'dulzura'     => '<span style="font-size:2em;">🍬</span>',
-        'cuerpo'      => '<span style="font-size:2em;">☕</span>',
-        'intensidad'   => '<span style="font-size:2em;">🌱</span>',
-        'variedad'    => '<span style="font-size:2em;">🌿</span>',
-        'region'      => '<span style="font-size:2em;">📍</span>',
+        'acidez'      => '💧',
+        'dulzura'     => '🍬',
+        'cuerpo'      => '☕',
+        'intensidad'   => '🌱',
+        'variedad'    => '🌿',
+        'region'      => '📍',
     ];
 
     $total_ratings = [];
@@ -68,33 +69,24 @@ function cwr_custom_reviews_visual_block() {
 
     ?>
     <div class="custom-review-stats" style="padding: 24px 12px; background: #f8f3ef; border-radius: 16px; max-width: 520px; margin: 30px auto;">
-        <div class="attributes-icons" style="display: flex; justify-content: space-between; margin-bottom: 22px;">
-            <?php foreach ($ratings_array as $rating): ?>
-                <div style="text-align: center;">
-                    <?php echo ($icons[sanitize_key($rating)] ?? '') ?>
-                    <div style="font-size: 1em; margin-top: 4px;"><?php echo esc_html($rating); ?></div>
+        <div class="attributes-icons" style="display: flex; justify-content: space-between; margin-bottom: 18px;">
+            <?php foreach ($ratings_array as $rating):
+                $rating_key = sanitize_key($rating);
+                $average = (!empty($count_ratings[$rating_key]) && $count_ratings[$rating_key] > 0) ? round($total_ratings[$rating_key] / $count_ratings[$rating_key], 1) : 0;
+                $percentage = ($average / 5) * 100;
+                ?>
+                <div style="flex: 1; text-align: center; margin: 0 6px;">
+                    <div style="font-size: 2em;"><?php echo esc_html($icons[$rating_key] ?? ''); ?></div>
+                    <div style="font-size: 1em; margin-top: 6px;"><?php echo esc_html($rating); ?></div>
+                    <div style="background: #eee; border-radius: 6px; overflow: hidden; height: 12px; margin: 6px auto 0; max-width: 90%;">
+                        <div style="background: #6B4F31; height: 100%; width: <?php echo esc_attr($percentage); ?>%;"></div>
+                    </div>
+                    <div style="margin-top: 4px; font-size: 0.95em; font-weight: 600;">
+                        <?php echo intval($percentage); ?>%
+                    </div>
                 </div>
             <?php endforeach; ?>
         </div>
-
-        <div style="font-size: 2.5em; font-weight: bold; text-align: center; margin-bottom: 17px;">
-            <?php echo esc_html($promedio_general); ?> / 5
-        </div>
-
-        <?php foreach ($ratings_array as $rating):
-            $rating_key = sanitize_key($rating);
-            $average = (!empty($count_ratings[$rating_key]) && $count_ratings[$rating_key] > 0) ? round($total_ratings[$rating_key] / $count_ratings[$rating_key], 1) : 0;
-            $percentage = ($average / 5) * 100;
-            ?>
-            <div style="margin-bottom: 10px;">
-                <div style="width: 100%; background: #eee; border-radius: 6px; overflow: hidden; height: 14px; margin-bottom: 4px;">
-                    <div style="background: #6B4F31; height: 100%; width: <?php echo esc_attr($percentage); ?>%;"></div>
-                </div>
-                <div style="width: 55px; text-align: right; font-size: 1em;">
-                    <?php echo intval($percentage); ?>%
-                </div>
-            </div>
-        <?php endforeach; ?>
     </div>
     <?php
 }
