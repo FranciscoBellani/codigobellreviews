@@ -14,6 +14,9 @@ function cwr_custom_reviews_tab_content() {
     // Mostrar el bloque de atributos extendidos
     cwr_custom_reviews_visual_block();
 
+    // Nuevo: Bloque para atributos adicionales
+    cwr_additional_attributes_visual_block();
+
     // Mostrar el template original de las reseñas (comentarios)
     comments_template();
 }
@@ -24,7 +27,7 @@ function cwr_custom_reviews_visual_block() {
     global $product;
     $product_id = $product->get_id();
 
-    // Configuración
+    // Configuración existente...
     $ratings = get_option('cwr_specific_ratings', "Acidez\nDulzura\nCuerpo\nProcesado\nVariedad\nRegión");
     $ratings_array = array_filter(array_map('trim', explode("\n", $ratings)));
 
@@ -82,6 +85,94 @@ function cwr_custom_reviews_visual_block() {
                         <div style="background: #6B4F31; height: 100%; width: <?php echo esc_attr($percentage); ?>%;"></div>
                     </div>
                     <div style="margin-top: 4px; font-size: 0.95em; font-weight: 600;">
+                        <?php echo esc_html($average); ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <div style="text-align: center; font-size: 1.2em; font-weight: bold;">
+            <?php echo esc_html($promedio_general); ?> / 5
+            <span style="font-size: 0.8em; color: #666;">(Promedio General)</span>
+        </div>
+    </div>
+    <?php
+}
+
+function cwr_additional_attributes_visual_block() {
+    if (!is_product()) return;
+
+    global $product;
+    $product_id = $product->get_id();
+
+    $like_count = 0;
+    $dislike_count = 0;
+    $comments = get_comments(array(
+        'post_id' => $product_id,
+        'status' => 'approve',
+        'type' => 'review',
+    ));
+    foreach ($comments as $comment) {
+        $value = get_comment_meta($comment->comment_ID, 'cwr_like_dislike', true);
+        if ($value === 'like') $like_count++;
+        if ($value === 'dislike') $dislike_count++;
+    }
+    $total_ld = $like_count + $dislike_count;
+    $like_percentage = $total_ld > 0 ? round(($like_count / $total_ld) * 100) : 0;
+
+    // Para Purchase Intent
+    $purchase_counts = [];
+    $purchase_options = get_option('cwr_purchase_intent_options', "Lo compré\nLo voy a comprar");
+    $purchase_array = array_filter(array_map('trim', explode("\n", $purchase_options)));
+    foreach ($purchase_array as $option) {
+        $key = sanitize_key($option);
+        $purchase_counts[$key] = 0;
+    }
+    $total_purchase = 0;
+    foreach ($comments as $comment) {
+        $value = get_comment_meta($comment->comment_ID, 'cwr_purchase_intent', true);
+        if (isset($purchase_counts[$value])) {
+            $purchase_counts[$value]++;
+            $total_purchase++;
+        }
+    }
+
+    $like_dislike_label = get_option('cwr_like_dislike_label', "Me Gusta / No Me Gusta");
+
+    ?>
+    <div class="additional-review-stats" style="padding: 24px 12px; background: #f8f3ef; border-radius: 16px; max-width: 520px; margin: 30px auto;">
+        <h3 style="text-align: center; margin-bottom: 18px;"><?php echo esc_html($like_dislike_label); ?></h3>
+        <div style="display: flex; justify-content: space-around;">
+            <div style="text-align: center;">
+                <div style="font-size: 2em;">👍</div>
+                <div>Completamente: <?php echo $like_percentage; ?>%</div>
+                <div style="background: #eee; border-radius: 6px; overflow: hidden; height: 12px; margin: 6px auto 0; max-width: 200px;">
+                    <div style="background: #6B4F31; height: 100%; width: <?php echo esc_attr($like_percentage); ?>%;"></div>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 2em;">👎</div>
+                <div>Para Nada: <?php echo 100 - $like_percentage; ?>%</div>
+                <div style="background: #eee; border-radius: 6px; overflow: hidden; height: 12px; margin: 6px auto 0; max-width: 200px;">
+                    <div style="background: #6B4F31; height: 100%; width: <?php echo esc_attr(100 - $like_percentage); ?>%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="text-align: center; margin: 24px 0 18px;">Intención de Compra</h3>
+        <div class="purchase-icons" style="display: flex; justify-content: space-between;">
+            <?php foreach ($purchase_array as $option):
+                $key = sanitize_key($option);
+                $count = $purchase_counts[$key] ?? 0;
+                $percentage = $total_purchase > 0 ? round(($count / $total_purchase) * 100) : 0;
+                $icon = ($key === 'locompre') ? '🛒' : '📅'; // Iconos de ejemplo: carrito para "compré", calendario para "voy a comprar"
+                ?>
+                <div style="flex: 1; text-align: center; margin: 0 6px;">
+                    <div style="font-size: 2em;"><?php echo esc_html($icon); ?></div>
+                    <div style="font-size: 1em; margin-top: 6px;"><?php echo esc_html($option); ?></div>
+                    <div style="background: #eee; border-radius: 6px; overflow: hidden; height: 12px; margin: 6px auto 0; max-width: 90%;">
+                        <div style="background: #6B4F31; height: 100%; width: <?php echo esc_attr($percentage); ?>%;"></div>
+                    </div>
+                    <div style="margin-top: 4px; font-size: 0.95em; font-weight: 600;">
                         <?php echo intval($percentage); ?>%
                     </div>
                 </div>
@@ -89,4 +180,51 @@ function cwr_custom_reviews_visual_block() {
         </div>
     </div>
     <?php
+
+    // Mostrar valoraciones del usuario actual
+    $current_user = wp_get_current_user();
+    if ($current_user && ($current_user->ID == get_current_user_id() || current_user_can('manage_options'))) {
+        foreach ($comments as $comment) {
+            if ($comment->user_id == $current_user->ID) {
+                echo '<div class="user-review-details" style="margin: 20px 0; padding: 15px; background: #f0f0f0; border-radius: 8px;">';
+                echo '<h4 style="margin-bottom: 10px;">Tus Valoraciones para esta Reseña:</h4>';
+
+                // Valoración general
+                $general_rating = get_comment_meta($comment->comment_ID, 'rating', true);
+                if ($general_rating) {
+                    echo '<p>Valoración General: ' . esc_html($general_rating) . ' / 5</p>';
+                }
+
+                // Características específicas
+                foreach ($ratings_array as $rating) {
+                    $rating_key = sanitize_key($rating);
+                    $rating_value = get_comment_meta($comment->comment_ID, 'cwr_rating_' . $rating_key, true);
+                    if ($rating_value) {
+                        echo '<p>' . esc_html($rating) . ': ' . esc_html($rating_value) . ' / 5</p>';
+                    }
+                }
+
+                // Like/Dislike
+                $like_dislike = get_comment_meta($comment->comment_ID, 'cwr_like_dislike', true);
+                if ($like_dislike) {
+                    echo '<p>' . esc_html($like_dislike_label) . ': ' . ($like_dislike === 'like' ? '👍' : '👎') . '</p>';
+                }
+
+                // Intención de Compra
+                $purchase_intent = get_comment_meta($comment->comment_ID, 'cwr_purchase_intent', true);
+                if ($purchase_intent) {
+                    $option_text = array_search($purchase_intent, array_map('sanitize_key', $purchase_array)) ?: $purchase_intent;
+                    echo '<p>Intención de Compra: ' . esc_html($option_text) . '</p>';
+                }
+
+                // Sugerencia
+                $feature_suggestion = get_comment_meta($comment->comment_ID, 'cwr_feature_suggestion', true);
+                if ($feature_suggestion) {
+                    echo '<p>Sugerencia: ' . esc_html($feature_suggestion) . '</p>';
+                }
+
+                echo '</div>';
+            }
+        }
+    }
 }

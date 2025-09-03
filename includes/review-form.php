@@ -5,16 +5,36 @@ if (!defined('ABSPATH')) exit;
 add_filter('woocommerce_product_review_comment_form_args', 'cwr_custom_review_form', 10, 1);
 function cwr_custom_review_form($comment_form) {
     if (!is_user_logged_in()) {
-        $comment_form['comment_field'] = '<p class="comment-form-comment"><strong>' . __('Debes estar registrado para dejar una reseña.', 'codigobell-woo-reviews') . '</strong></p>';
+        // Obtener la URL de My Account con redirección a la página actual
+        $redirect_url = get_permalink(); // URL del producto actual
+        $my_account_url = get_permalink(wc_get_page_id('myaccount'));
+        $nonce = wp_create_nonce('cwr_login_nonce'); // Nonce para seguridad
+        $login_url = add_query_arg(
+            array(
+                'redirect_to' => urlencode($redirect_url),
+                'cwr_nonce' => $nonce
+            ),
+            $my_account_url
+        );
+        
+        // Reemplazar el mensaje con un botón seguro
+        $comment_form['comment_field'] = '
+            <p class="comment-form-comment"><strong>' . __('Debes estar registrado para dejar una reseña.', 'codigobell-woo-reviews') . '</strong></p>
+            <p><a href="' . esc_url($login_url) . '" class="button" style="background: #6B4F31; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">' . __('Iniciar sesión para dejar una reseña', 'codigobell-woo-reviews') . '</a></p>';
         $comment_form['fields'] = [];
         $comment_form['submit_button'] = '';
+        $comment_form['comment_notes_after'] = '';
         return $comment_form;
     }
 
     $ratings = get_option('cwr_specific_ratings', "Acidez\nDulzura\nCuerpo");
     $ratings_array = array_filter(array_map('trim', explode("\n", $ratings)));
 
+    // Añadir descripción para la valoración general de WooCommerce
+    $comment_form['comment_field'] .= '<p><small>(Gana 5 puntos por la valoración general)</small></p>';
+
     $comment_form['comment_field'] .= '<div class="cwr-specific-ratings" style="margin: 10px 0;">';
+    $comment_form['comment_field'] .= '<p><strong>Valoraciones Específicas</strong> <small>(Gana 10 puntos por completar todas las características)</small></p>'; // Descripción para características
     foreach ($ratings_array as $rating) {
         $rating_key = sanitize_key($rating);
         $comment_form['comment_field'] .= '
@@ -26,15 +46,44 @@ function cwr_custom_review_form($comment_form) {
                     </span>
                     <input type="hidden" name="cwr_rating_' . esc_attr($rating_key) . '" id="cwr_rating_' . esc_attr($rating_key) . '" class="cwr-star-input" value="0" required>
                 </div>
-            </p>';
+                <small>(Gana 3 puntos por esta valoración)</small>'; // Descripción por característica individual
     }
     $comment_form['comment_field'] .= '</div>';
+
+    // Nuevo: Sección Me Gusta / No Me Gusta
+    $like_dislike_label = get_option('cwr_like_dislike_label', "Me Gusta / No Me Gusta");
+    $comment_form['comment_field'] .= '
+        <p class="comment-form-like-dislike">
+            <label>' . esc_html($like_dislike_label) . ' <span class="required">*</span></label>
+            <div class="cwr-like-dislike" style="display: flex; gap: 10px;">
+                <button type="button" class="cwr-thumb" data-value="like" style="font-size: 2em; cursor: pointer;">👍</button>
+                <button type="button" class="cwr-thumb" data-value="dislike" style="font-size: 2em; cursor: pointer;">👎</button>
+            </div>
+            <input type="hidden" name="cwr_like_dislike" id="cwr_like_dislike" value="" required>
+            <small>(Gana 3 puntos por seleccionar)</small>'; // Descripción para like/dislike
+    $comment_form['comment_field'] .= '</p>';
+
+    // Nuevo: Sección Compraste / Lo Voy a Comprar
+    $purchase_options = get_option('cwr_purchase_intent_options', "Lo compré\nLo voy a comprar");
+    $purchase_array = array_filter(array_map('trim', explode("\n", $purchase_options)));
+    $comment_form['comment_field'] .= '
+        <p class="comment-form-purchase-intent">
+            <label for="cwr_purchase_intent">Intención de Compra <span class="required">*</span></label>
+            <select name="cwr_purchase_intent" id="cwr_purchase_intent" required>
+                <option value="">Selecciona una opción</option>';
+    foreach ($purchase_array as $option) {
+        $comment_form['comment_field'] .= '<option value="' . esc_attr(sanitize_key($option)) . '">' . esc_html($option) . '</option>';
+    }
+    $comment_form['comment_field'] .= '</select>
+            <small>(Gana 5 puntos por seleccionar)</small>'; // Descripción para intención de compra
+    $comment_form['comment_field'] .= '</p>';
 
     $comment_form['comment_field'] .= '
         <p class="comment-form-feature">
             <label for="cwr_feature_suggestion">' . __('Sugerir una característica adicional', 'codigobell-woo-reviews') . '</label>
             <textarea id="cwr_feature_suggestion" name="cwr_feature_suggestion" cols="45" rows="4" maxlength="500"></textarea>
-        </p>';
+            <small>(Gana 10 puntos por sugerir)</small>'; // Descripción para sugerencia
+    $comment_form['comment_field'] .= '</p>';
 
     $script_nonce = wp_create_nonce('cwr_star_rating_script');
     $comment_form['comment_field'] .= '
@@ -70,6 +119,8 @@ function cwr_custom_review_form($comment_form) {
                 font-family: dashicons;
                 letter-spacing: 0.13em;
             }
+            .cwr-like-dislike button.selected { background: #6B4F31; color: white; border-radius: 50%; }
+            small { color: #666; font-size: 0.8em; display: block; margin-top: 5px; } /* Estilo para las descripciones de puntos */
         </style>
         <script id="cwr-star-rating-script-' . esc_attr($script_nonce) . '" nonce="' . esc_attr($script_nonce) . '">
             jQuery(document).ready(function($) {
@@ -83,7 +134,6 @@ function cwr_custom_review_form($comment_form) {
                     if ($stars.length > 0) {
                         console.log("Inicializado:", $stars.length, "estrellas en", $container.attr("data-rating-key"));
 
-                        // Inicialización
                         $input.val(0);
                         $fillSpan.css("width", "0%");
 
@@ -112,6 +162,12 @@ function cwr_custom_review_form($comment_form) {
                     } else {
                         console.log("No se encontraron estrellas en", $container.attr("data-rating-key"));
                     }
+                });
+
+                $(".cwr-thumb").on("click", function() {
+                    $(".cwr-thumb").removeClass("selected");
+                    $(this).addClass("selected");
+                    $("#cwr_like_dislike").val($(this).data("value"));
                 });
             });
         </script>';
