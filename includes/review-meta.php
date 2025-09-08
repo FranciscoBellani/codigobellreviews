@@ -57,45 +57,55 @@ function cwr_force_pending_reviews($comment_id, $commentdata) {
     return $comment_id;
 }
 
-// Disparar eventos GamiPress al aprobar reseña
-add_action('comment_unapproved_to_approved', 'cwr_gamipress_award_on_review_approve', 10, 2);
-function cwr_gamipress_award_on_review_approve($comment, $commentdata) {
-    if ($commentdata['comment_type'] === 'review') {
-        $user_id = $comment->user_id;
-        if ($user_id > 0) {
+// Disparar eventos GamiPress al aprobar reseña, CORREGIDO: solo 1 argumento
+add_action('comment_unapproved_to_approved', 'cwr_gamipress_award_on_review_approve', 10, 1);
+function cwr_gamipress_award_on_review_approve($comment) {
+    // $comment puede ser WP_Comment o comment_ID
+    if (is_numeric($comment)) {
+        $comment = get_comment($comment);
+    }
+    if (!$comment || $comment->comment_type !== 'review') {
+        return;
+    }
+    $user_id = $comment->user_id;
+    if ($user_id > 0) {
+        error_log("[GamiPress Debug] Disparando trigger cwr_publish_review para user_id " . $user_id);
+        gamipress_trigger_event(array(
+            'event' => 'cwr_publish_review',
+            'user_id' => $user_id,
+            'post_id' => $comment->comment_post_ID,
+            'comment_id' => $comment->comment_ID,
+        ));
+        $general_rating = get_comment_meta($comment->comment_ID, 'rating', true);
+        if ($general_rating >= 4) {
+            error_log("[GamiPress Debug] Disparando trigger cwr_high_rating_review para user_id " . $user_id);
             gamipress_trigger_event(array(
-                'event' => 'cwr_publish_review',
+                'event' => 'cwr_high_rating_review',
                 'user_id' => $user_id,
-                'post_id' => $commentdata['comment_post_ID'],
-                'comment_id' => $comment->comment_ID,
             ));
-            $general_rating = get_comment_meta($comment->comment_ID, 'rating', true);
-            if ($general_rating >= 4) {
-                gamipress_trigger_event(array(
-                    'event' => 'cwr_high_rating_review',
-                    'user_id' => $user_id,
-                ));
-            }
-            $like_dislike = get_comment_meta($comment->comment_ID, 'cwr_like_dislike', true);
-            if ($like_dislike === 'like') {
-                gamipress_trigger_event(array(
-                    'event' => 'cwr_like_review',
-                    'user_id' => $user_id,
-                ));
-            }
-            $purchase_intent = get_comment_meta($comment->comment_ID, 'cwr_purchase_intent', true);
-            if ($purchase_intent === 'locompre') {
-                gamipress_trigger_event(array(
-                    'event' => 'cwr_purchased_review',
-                    'user_id' => $user_id,
-                ));
-            }
-            if (get_comment_meta($comment->comment_ID, 'cwr_feature_suggestion', true)) {
-                gamipress_trigger_event(array(
-                    'event' => 'cwr_suggestion_review',
-                    'user_id' => $user_id,
-                ));
-            }
+        }
+        $like_dislike = get_comment_meta($comment->comment_ID, 'cwr_like_dislike', true);
+        if ($like_dislike === 'like') {
+            error_log("[GamiPress Debug] Disparando trigger cwr_like_review para user_id " . $user_id);
+            gamipress_trigger_event(array(
+                'event' => 'cwr_like_review',
+                'user_id' => $user_id,
+            ));
+        }
+        $purchase_intent = get_comment_meta($comment->comment_ID, 'cwr_purchase_intent', true);
+        if ($purchase_intent === 'locompre') {
+            error_log("[GamiPress Debug] Disparando trigger cwr_purchased_review para user_id " . $user_id);
+            gamipress_trigger_event(array(
+                'event' => 'cwr_purchased_review',
+                'user_id' => $user_id,
+            ));
+        }
+        if (get_comment_meta($comment->comment_ID, 'cwr_feature_suggestion', true)) {
+            error_log("[GamiPress Debug] Disparando trigger cwr_suggestion_review para user_id " . $user_id);
+            gamipress_trigger_event(array(
+                'event' => 'cwr_suggestion_review',
+                'user_id' => $user_id,
+            ));
         }
     }
 }
