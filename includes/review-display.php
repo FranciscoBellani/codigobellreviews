@@ -1,14 +1,17 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+
 // Engancha el bloque dentro de la pestaña Reviews, antes del listado de comentarios
 add_filter('woocommerce_product_tabs', 'cwr_add_extended_ratings_to_reviews_tab');
+
 
 function cwr_add_extended_ratings_to_reviews_tab($tabs) {
     // Modificar callback original de la pestaña reviews para extender contenido
     $tabs['reviews']['callback'] = 'cwr_custom_reviews_tab_content';
     return $tabs;
 }
+
 
 function cwr_custom_reviews_tab_content() {
     // Mostrar el bloque de atributos extendidos
@@ -17,9 +20,29 @@ function cwr_custom_reviews_tab_content() {
     // Nuevo: Bloque para atributos adicionales
     cwr_additional_attributes_visual_block();
 
+    // Mostrar puntaje total del usuario actual
+    cwr_show_user_total_score();
+
     // Mostrar el template original de las reseñas (comentarios)
     comments_template();
 }
+
+// Función que muestra el puntaje total actual del usuario con botón a Mi Cuenta
+function cwr_show_user_total_score() {
+    $user_id = get_current_user_id();
+    if (!$user_id) return;
+
+    // Usar el shortcode que suma puntos totales registrado en tu plugin
+    $total_points = do_shortcode('[gamipress_site_points]');
+    
+    $account_url = wc_get_page_permalink('myaccount');
+    
+    echo '<div style="margin:20px 0; padding:12px; background:#e0f7fa; border-radius:8px; text-align:center;">';
+    echo '<p style="font-weight:bold; font-size:1.2em;">' . sprintf(__('Puntaje total: %s', 'codigobell-woo-reviews'), $total_points) . '</p>';
+    echo '<a href="' . esc_url($account_url) . '" style="background:#6B4F31; color:#fff; padding:10px 20px; border-radius:5px; text-decoration:none;">' . __('Ir a Mi Cuenta', 'codigobell-woo-reviews') . '</a>';
+    echo '</div>';
+}
+
 
 function cwr_custom_reviews_visual_block() {
     if (!is_product()) return;
@@ -35,7 +58,7 @@ function cwr_custom_reviews_visual_block() {
         'acidez'      => '💧',
         'dulzura'     => '🍬',
         'cuerpo'      => '☕',
-        'intensidad'   => '🌱',
+        'intensidad'  => '🌱',
         'variedad'    => '🌿',
         'region'      => '📍',
     ];
@@ -69,7 +92,6 @@ function cwr_custom_reviews_visual_block() {
     }
 
     $promedio_general = $count_general > 0 ? round($sum_general / $count_general, 1) : 0;
-
     ?>
     <div class="custom-review-stats" style="padding: 24px 12px; background: #f8f3ef; border-radius: 16px; max-width: 520px; margin: 30px auto;">
         <div class="attributes-icons" style="display: flex; justify-content: space-between; margin-bottom: 18px;">
